@@ -82,6 +82,8 @@ func toAbsoluteUrl(base *url.URL, urlStr string) string {
 	return absUrl.String()
 }
 
+var ignoreTagRegexp = regexp.MustCompile(`^(?:meta|isindex|title|script|style|head|html)$`)
+
 func Find(base string) ([]string, error) {
 	res, err := http.Get(base)
 	if err != nil {
@@ -100,11 +102,18 @@ func Find(base string) ([]string, error) {
 	}
 
 	feeds := make([]string, 0)
+	endFlag := false
+
 	var nodeWalk func(*html.Node)
 	nodeWalk = func(n *html.Node) {
+		if endFlag {
+			return
+		}
+
 		if n.Type == html.ElementNode {
-			switch n.Data {
-			case "link":
+			tagName := n.Data
+
+			if tagName == "link" {
 				feed, ok := handleLinkTag(n)
 				if !ok {
 					return
@@ -112,7 +121,19 @@ func Find(base string) ([]string, error) {
 
 				feedAbsUrl := toAbsoluteUrl(baseUrl, feed)
 				feeds = append(feeds, feedAbsUrl)
-			case "a":
+			} else if tagName == "base" {
+				href, ok := findAttr(n, "href")
+				if !ok {
+					return
+				}
+
+				baseUrl, err = url.Parse(href)
+				if err != nil {
+					return
+				}
+			} else if ignoreTagRegexp.MatchString(tagName) {
+				// Ignore other valid tags inside of <head>
+			} else if tagName == "a" {
 				href, ok := findAttr(n, "href")
 				if !ok {
 					return
@@ -122,15 +143,9 @@ func Find(base string) ([]string, error) {
 				if isFeedUrl(feedAbsUrl) {
 					feeds = append(feeds, feedAbsUrl)
 				}
-			case "base":
-				href, ok := findAttr(n, "href")
-				if !ok {
-					return
-				}
-
-				baseUrl, err = url.Parse(href)
-				if err != nil {
-					return
+			} else {
+				if len(feeds) > 0 {
+					endFlag = true
 				}
 			}
 		}

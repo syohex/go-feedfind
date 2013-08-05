@@ -49,6 +49,20 @@ func TestLivedoor(t *testing.T) {
 		"http://blog.livedoor.jp/xaicron/atom.xml",
 	}
 	if !find(feeds, expecteds...) {
-		t.Errorf("Can't find '/feed' and '/rss'")
+		t.Errorf("Can't find 'rss' and 'atom'")
+	}
+}
+
+func TestMattn(t *testing.T) {
+	feeds, err := Find("http://mattn.kaoriya.net/")
+	if err != nil {
+		t.Errorf("Can't find rss at mattn blog")
+	}
+
+	expecteds := []string{
+		"http://mattn.kaoriya.net/index.rss",
+	}
+	if !find(feeds, expecteds...) {
+		t.Errorf("Can't find feed URL")
 	}
 }
